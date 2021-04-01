@@ -6,6 +6,15 @@ option go_package = ".;proto";
 // this will be package of the generated code
 package proto;
 
+message SumRequest {
+    int32 number1 = 1;
+    int32 number2 = 2;
+}
+
+message SumResponse {
+    int32 sum = 1;
+}
+
 message ComputeAverageRequest {
     int32 number = 1;
 }
@@ -14,7 +23,21 @@ message ComputeAverageResponse {
     float average = 1;
 }
 
+message PrimeNumberDecompositionRequest {
+    int32 number = 1;
+}
+
+message PrimeNumberDecompositionResponse {
+    int32 primeNumber = 1;
+}
+
 service CalculatorService {
+// unary general req/resp
+rpc Sum (SumRequest) returns (SumResponse);
+
 // client streaming
 rpc ComputeAverage (stream ComputeAverageRequest) returns (ComputeAverageResponse);
+
+// server streaming
+rpc PrimeNumberDecomposition(PrimeNumberDecompositionRequest) returns (stream PrimeNumberDecompositionResponse);
 }

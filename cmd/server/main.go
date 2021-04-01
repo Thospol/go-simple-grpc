@@ -10,25 +10,12 @@ import (
 	"google.golang.org/grpc"
 )
 
-// UserServerImpl Implement proto.PingPongServer
-type UserServerImpl struct {
-}
+type CalculatorService struct{}
 
-// GetProfile get user service
-func (s *UserServerImpl) GetProfile(ctx context.Context, request *proto.UserRequest) (*proto.User, error) {
-	fmt.Println("Ping Received")
-
-	resp := proto.User{
-		ApplicantId: request.Id,
-		ThName:      "ธวัชชัย",
-		ThSurname:   "รัตนมงคล",
-		ThNickname:  "วัช",
-	}
-
-	return &resp, nil
-}
-
-type CalculatorService struct {
+func (s *CalculatorService) Sum(ctx context.Context, request *proto.SumRequest) (*proto.SumResponse, error) {
+	return &proto.SumResponse{
+		Sum: request.Number1 + request.Number2,
+	}, nil
 }
 
 func (s CalculatorService) ComputeAverage(stream proto.CalculatorService_ComputeAverageServer) error {
@@ -54,17 +41,31 @@ func (s CalculatorService) ComputeAverage(stream proto.CalculatorService_Compute
 	}
 }
 
+func (s CalculatorService) PrimeNumberDecomposition(request *proto.PrimeNumberDecompositionRequest, stream proto.CalculatorService_PrimeNumberDecompositionServer) error {
+	number := request.GetNumber()
+	var divisor int32 = 2
+	for number > 1 {
+		if number%divisor == 0 {
+			response := proto.PrimeNumberDecompositionResponse{PrimeNumber: divisor}
+			err := stream.Send(&response)
+			if err != nil {
+				return err
+			}
+
+			number = number / divisor
+		} else {
+			divisor++
+		}
+	}
+
+	return nil
+}
+
 func main() {
-	// args := os.Args
-	// fmt.Printf("args: %v", args[1:])
-
-	userSrv := UserServerImpl{}
-	calculatorSrv := CalculatorService{}
-
 	lis, err := net.Listen("tcp", ":8000")
 
 	grpcServer := grpc.NewServer()
-	proto.RegisterUserServiceServer(grpcServer, &userSrv)
+	calculatorSrv := CalculatorService{}
 	proto.RegisterCalculatorServiceServer(grpcServer, &calculatorSrv)
 
 	// Start grpcServer
