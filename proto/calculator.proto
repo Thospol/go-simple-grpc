@@ -1,0 +1,20 @@
+
+syntax="proto3";
+
+option go_package = ".;proto";
+
+// this will be package of the generated code
+package proto;
+
+message ComputeAverageRequest {
+    int32 number = 1;
+}
+
+message ComputeAverageResponse {
+    float average = 1;
+}
+
+service CalculatorService {
+// client streaming
+rpc ComputeAverage (stream ComputeAverageRequest) returns (ComputeAverageResponse);
+}
