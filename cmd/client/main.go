@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"grpc-api/proto"
+	"io"
 	"os"
 	"time"
 
@@ -28,20 +29,20 @@ func GetProfile(client proto.UserServiceClient) (*proto.User, error) {
 		return nil, err
 	}
 
-	PrintFormatJSON(response)
+	fmt.Println("user: ", response)
 
 	return response, err
 }
 
 // GetAvgCalculator get avg from slice of number
-func GetAvgCalculator(client proto.CalculatorServiceClient) (float32, error) {
+func GetAvgCalculator(client proto.CalculatorServiceClient) error {
 	// Timeout 10 seconds
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	stream, err := client.ComputeAverage(ctx)
 	if err != nil {
-		return 0, err
+		return err
 	}
 
 	request := []*proto.ComputeAverageRequest{
@@ -51,17 +52,48 @@ func GetAvgCalculator(client proto.CalculatorServiceClient) (float32, error) {
 	for i := range request {
 		err = stream.Send(request[i])
 		if err != nil {
-			return 0, err
+			return err
 		}
 		fmt.Printf("send request: %+v\n", request[i])
 	}
 
 	response, err := stream.CloseAndRecv()
 	if err != nil {
-		return 0, err
+		return err
 	}
 
-	return response.Average, err
+	fmt.Println("avg: ", response.Average)
+
+	return err
+}
+
+func GetPrimeNumberDecomposition(client proto.CalculatorServiceClient) error {
+	// Timeout 10 seconds
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	request := proto.PrimeNumberDecompositionRequest{
+		Number: 210,
+	}
+	stream, err := client.PrimeNumberDecomposition(ctx, &request)
+	if err != nil {
+		return err
+	}
+
+	for {
+		response, err := stream.Recv()
+		if err == io.EOF {
+			break
+		}
+
+		if err != nil {
+			return err
+		}
+
+		fmt.Println("primeNumber: ", response.PrimeNumber)
+	}
+
+	return nil
 }
 
 func main() {
@@ -72,19 +104,28 @@ func main() {
 		panic(err)
 	}
 
-	// clientUser := proto.NewUserServiceClient(conn)
-	// _, err = GetProfile(clientUser)
-	// if err != nil {
-	// 	panic(err)
-	// }
+	clientUser := proto.NewUserServiceClient(conn)
+	// unary request/ response
+	_, err = GetProfile(clientUser)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("============================================")
 
 	clientCalculator := proto.NewCalculatorServiceClient(conn)
-	avg, err := GetAvgCalculator(clientCalculator)
+	// client streaming
+	err = GetAvgCalculator(clientCalculator)
 	if err != nil {
 		panic(err)
 	}
 
-	fmt.Println("avg: ", avg)
+	fmt.Println("============================================")
+
+	// server streaming
+	err = GetPrimeNumberDecomposition(clientCalculator)
+	if err != nil {
+		panic(err)
+	}
 }
 
 // PrintFormatJSON print format json
