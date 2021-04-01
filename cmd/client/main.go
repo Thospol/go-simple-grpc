@@ -10,28 +10,26 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
-// GetProfile get profile by user
-func GetProfile(client proto.UserServiceClient) (*proto.User, error) {
+// GetAvgCalculator get avg from slice of number
+func SumValue(client proto.CalculatorServiceClient) error {
 	// Timeout 10 seconds
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	request := proto.UserRequest{
-		Id: "64548",
+	request := proto.SumRequest{
+		Number1: 3,
+		Number2: 10,
 	}
-	response, err := client.GetProfile(ctx, &request)
-	statusCode := status.Code(err)
-	if statusCode != codes.OK {
-		return nil, err
+	response, err := client.Sum(ctx, &request)
+	if err != nil {
+		return err
 	}
 
-	fmt.Println("user: ", response)
+	fmt.Println("sum: ", response.Sum)
 
-	return response, err
+	return err
 }
 
 // GetAvgCalculator get avg from slice of number
@@ -80,6 +78,7 @@ func GetPrimeNumberDecomposition(client proto.CalculatorServiceClient) error {
 		return err
 	}
 
+	var result int32 = 0
 	for {
 		response, err := stream.Recv()
 		if err == io.EOF {
@@ -91,7 +90,14 @@ func GetPrimeNumberDecomposition(client proto.CalculatorServiceClient) error {
 		}
 
 		fmt.Println("primeNumber: ", response.PrimeNumber)
+		if result > 0 {
+			result = result * response.PrimeNumber
+		} else {
+			result = response.PrimeNumber
+		}
 	}
+	fmt.Println("number: ", request.Number)
+	fmt.Println("result: ", result)
 
 	return nil
 }
@@ -104,15 +110,15 @@ func main() {
 		panic(err)
 	}
 
-	clientUser := proto.NewUserServiceClient(conn)
-	// unary request/ response
-	_, err = GetProfile(clientUser)
+	clientCalculator := proto.NewCalculatorServiceClient(conn)
+	// client streaming
+	err = SumValue(clientCalculator)
 	if err != nil {
 		panic(err)
 	}
+
 	fmt.Println("============================================")
 
-	clientCalculator := proto.NewCalculatorServiceClient(conn)
 	// client streaming
 	err = GetAvgCalculator(clientCalculator)
 	if err != nil {
