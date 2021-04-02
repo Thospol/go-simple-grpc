@@ -178,7 +178,7 @@ func main() {
 	}
 
 	clientCalculator := proto.NewCalculatorServiceClient(conn)
-	// client streaming
+	// unary general req/resp
 	err = SumValue(clientCalculator)
 	if err != nil {
 		panic(err)
