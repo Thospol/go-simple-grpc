@@ -2,15 +2,17 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"grpc-api/proto"
 	"io"
 	"net"
+	"sync"
 
 	"google.golang.org/grpc"
 )
 
-type CalculatorService struct{}
+type CalculatorService struct {
+	mutex sync.Mutex
+}
 
 func (s *CalculatorService) Sum(ctx context.Context, request *proto.SumRequest) (*proto.SumResponse, error) {
 	return &proto.SumResponse{
@@ -18,8 +20,7 @@ func (s *CalculatorService) Sum(ctx context.Context, request *proto.SumRequest) 
 	}, nil
 }
 
-func (s CalculatorService) ComputeAverage(stream proto.CalculatorService_ComputeAverageServer) error {
-	fmt.Println("service start calculator...")
+func (s *CalculatorService) ComputeAverage(stream proto.CalculatorService_ComputeAverageServer) error {
 	var sum, count int32
 	for {
 		request, err := stream.Recv()
@@ -41,7 +42,7 @@ func (s CalculatorService) ComputeAverage(stream proto.CalculatorService_Compute
 	}
 }
 
-func (s CalculatorService) PrimeNumberDecomposition(request *proto.PrimeNumberDecompositionRequest, stream proto.CalculatorService_PrimeNumberDecompositionServer) error {
+func (s *CalculatorService) PrimeNumberDecomposition(request *proto.PrimeNumberDecompositionRequest, stream proto.CalculatorService_PrimeNumberDecompositionServer) error {
 	number := request.GetNumber()
 	var divisor int32 = 2
 	for number > 1 {
@@ -61,13 +62,40 @@ func (s CalculatorService) PrimeNumberDecomposition(request *proto.PrimeNumberDe
 	return nil
 }
 
+func (s *CalculatorService) FindMaximum(stream proto.CalculatorService_FindMaximumServer) error {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	var maximum int32
+	for {
+		request, err := stream.Recv()
+		if err == io.EOF {
+			return nil
+		}
+
+		if err != nil {
+			return err
+		}
+
+		if maximum < request.Number {
+			maximum = request.Number
+			err = stream.Send(&proto.FindMaximumResponse{
+				Maximum: maximum,
+			})
+
+			if err != nil {
+				return err
+			}
+		}
+	}
+}
+
 func main() {
 	lis, err := net.Listen("tcp", ":8000")
 
 	grpcServer := grpc.NewServer()
 	calculatorSrv := CalculatorService{}
 	proto.RegisterCalculatorServiceServer(grpcServer, &calculatorSrv)
-
 	// Start grpcServer
 	if err = grpcServer.Serve(lis); err != nil {
 		panic(err)
