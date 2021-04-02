@@ -86,6 +86,7 @@ func GetPrimeNumberDecomposition(client proto.CalculatorServiceClient) error {
 		}
 
 		if err != nil {
+			// handle log
 			return err
 		}
 
@@ -98,6 +99,72 @@ func GetPrimeNumberDecomposition(client proto.CalculatorServiceClient) error {
 	}
 	fmt.Println("number: ", request.Number)
 	fmt.Println("result: ", result)
+
+	return nil
+}
+
+func FindMaximum(client proto.CalculatorServiceClient) error {
+	stream, err := client.FindMaximum(context.Background())
+	if err != nil {
+		return err
+	}
+
+	request := []*proto.FindMaximumRequest{
+		{
+			Number: 1,
+		},
+		{
+			Number: 5,
+		},
+		{
+			Number: 3,
+		},
+		{
+			Number: 6,
+		},
+		{
+			Number: 2,
+		},
+		{
+			Number: 20,
+		},
+	}
+
+	go func() {
+		for i := 0; i < len(request); i++ {
+			err = stream.Send(request[i])
+			if err != nil {
+				return
+			}
+			fmt.Println("request number: ", request[i].Number)
+			time.Sleep(1 * time.Second)
+		}
+
+		err = stream.CloseSend()
+		if err != nil {
+			return
+		}
+	}()
+
+	wait := make(chan struct{})
+	go func() {
+		for {
+			resp, err := stream.Recv()
+			if err == io.EOF {
+				close(wait)
+				return
+			}
+
+			if err != nil {
+				close(wait)
+				return
+			}
+			fmt.Println("response maximum number: ", resp.Maximum)
+		}
+	}()
+
+	<-wait
+	fmt.Println("finish")
 
 	return nil
 }
@@ -129,6 +196,14 @@ func main() {
 
 	// server streaming
 	err = GetPrimeNumberDecomposition(clientCalculator)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println("============================================")
+
+	// bi-directional streaming
+	err = FindMaximum(clientCalculator)
 	if err != nil {
 		panic(err)
 	}
