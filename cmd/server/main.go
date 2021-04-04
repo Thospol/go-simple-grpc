@@ -2,16 +2,50 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"grpc-api/proto"
 	"io"
 	"net"
 	"sync"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 type CalculatorService struct {
 	mutex sync.Mutex
+}
+
+func (s *CalculatorService) FindMaximum(stream proto.CalculatorService_FindMaximumServer) error {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	var maximum int32
+	for {
+		request, err := stream.Recv()
+		if err == io.EOF {
+			return nil
+		}
+
+		if err != nil {
+			return err
+		}
+
+		if request.Number == 0 {
+			return status.Error(codes.InvalidArgument, fmt.Sprintf("error: number=%d is invalid", request.GetNumber()))
+		}
+
+		if maximum < request.Number {
+			maximum = request.Number
+			err = stream.Send(&proto.FindMaximumResponse{
+				Maximum: maximum,
+			})
+
+			if err != nil {
+				return err
+			}
+		}
+	}
 }
 
 func (s *CalculatorService) Sum(ctx context.Context, request *proto.SumRequest) (*proto.SumResponse, error) {
@@ -61,35 +95,6 @@ func (s *CalculatorService) PrimeNumberDecomposition(request *proto.PrimeNumberD
 
 	return nil
 }
-
-func (s *CalculatorService) FindMaximum(stream proto.CalculatorService_FindMaximumServer) error {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	var maximum int32
-	for {
-		request, err := stream.Recv()
-		if err == io.EOF {
-			return nil
-		}
-
-		if err != nil {
-			return err
-		}
-
-		if maximum < request.Number {
-			maximum = request.Number
-			err = stream.Send(&proto.FindMaximumResponse{
-				Maximum: maximum,
-			})
-
-			if err != nil {
-				return err
-			}
-		}
-	}
-}
-
 func main() {
 	lis, err := net.Listen("tcp", ":8000")
 
